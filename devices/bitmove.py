@@ -32,13 +32,19 @@ class BitMove:
         self.ser = serial.Serial(port, baud)
 
     def connect(self) -> None:
-        self.ser.open()
+        try:
+            self.ser.open()
+        except:
+            pass
     
     def disconnect(self) -> None:
         self.ser.close()
 
+    def get_raw(self):
+        return self.ser.readline().decode('utf-8', "replace")
+
     def get_state(self):
         self.ser.write(b'get_state\n')
-        state = self.ser.readline().decode('utf-8', "replace")
+        state = self.get_raw()
         state = json.loads(state)
         return BitMove.BitMoveState(**state)
