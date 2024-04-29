@@ -7,3 +7,12 @@
 body {
     @apply bg-neutral-950 text-white font-sans antialiased;
 }
+
+.text-stroke {
+    -webkit-text-stroke: 1px black;
+    // filter: drop-shadow(1px 1px 0px black);
+}
+
+* {
+    // outline: 1px solid red;
+}
