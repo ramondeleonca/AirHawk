@@ -1,5 +1,10 @@
 #include <Arduino.h>
 #include <CAN.h>
+#include <WiFi.h>
+#include <ArduinoJson.h>
+#include <./state.cpp>
+#include <Esp.h>
+#include <SerialCommand.h>
 
 const int PIR = 18;
 const int LED_B = 2;
@@ -9,7 +14,19 @@ const int CAN_RATE = 500E3;
 const int CAN_ID = 0x1;
 const int CAN_RX = 4;
 const int CAN_TX = 5;
-const bool CAN_ENABLED = true;
+const bool CAN_ENABLED = false;
+
+int connectedClients = 0;
+
+DeviceState state;
+SerialCommand commands;
+
+class Commands {
+  public:
+    static void get_state() {
+      Serial.println(state.serialize());
+    }
+};
 
 void setup() {
   Serial.begin(115200);
@@ -17,46 +34,47 @@ void setup() {
   pinMode(LED_B, OUTPUT);
   pinMode(LED_G, OUTPUT);
 
-  CAN.setPins(CAN_RX, CAN_TX);
-  int success = CAN.begin(CAN_RATE);
-  if (!success) {
-    Serial.println("CAN initialization failed");
-  } else Serial.println("CAN initialized");
-  Serial.println(success);
+  // Register commands
+  commands.addCommand("get_state", Commands::get_state);
 
-  CAN.beginPacket(CAN_ID);
-  CAN.write('u');
-  CAN.write('p');
-  CAN.endPacket();
-  Serial.println("CAN packet sent");
+  // Configure state
+  state.diskUsage = (float)ESP.getSketchSize() / (float)ESP.getFlashChipSize();
 }
 
 int lastState = LOW;
+int lastTime = 0;
 void loop() {
-  int presence = digitalRead(PIR);
+  int nowTime = millis();
+  int present = digitalRead(PIR);
 
-  if (presence != lastState) {
-    if (presence == HIGH) {
+  if (present != lastState) {
+    state.present = present;
+    state.deltaTime = nowTime - lastTime;
+    state.uptime = nowTime / 1000;
+
+    if (present == HIGH) {
       digitalWrite(LED_B, HIGH);
       digitalWrite(LED_G, LOW);
-      Serial.println("PRESENCE");
       if (CAN_ENABLED) {
         CAN.beginPacket(CAN_ID);
         CAN.write('p');
         CAN.endPacket();
-        Serial.println("CAN packet sent");
       }
     } else {
       digitalWrite(LED_B, LOW);
       digitalWrite(LED_G, HIGH);
-      Serial.println("NOMOTION");
       if (CAN_ENABLED) {
         CAN.beginPacket(CAN_ID);
         CAN.write('n');
         CAN.endPacket();
-        Serial.println("CAN packet sent");
       }
     }
-    lastState = presence;
+
+    lastState = present;
   }
+
+  lastTime = nowTime;
+
+  commands.readSerial();
+  commands.clearBuffer();
 }

@@ -19,7 +19,9 @@ class Cache:
         with open(self.path, 'r') as f:
             self.data = json.load(f)
 
-    def get(self, key: str):
+    def get(self, key: str, default=None):
+        if not key in self.data:
+            return default
         return self.data[key]
     
     def set(self, key: str, value):
